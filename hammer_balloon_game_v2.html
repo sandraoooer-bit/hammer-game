@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>锤子打气球小游戏（T锤版）</title>
+<style>
+  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#fafafa;font-family:var(--kimi-font-sans, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif);}
+  .wrap{display:flex;flex-direction:column;align-items:center;gap:12px;padding:16px 0;}
+  .stage{width:100%;max-width:360px}
+  .frame{fill:#fff;stroke:#bcd8ff;stroke-width:2}
+  svg{width:100%;height:auto;display:block}
+  .hammer{transition:transform 90ms ease-in}
+  .hammer.hit{transform:translateY(10px)}
+  .balloon-scale{transition:transform 260ms ease-out,opacity 200ms;transform:scale(var(--s,1));transform-box:fill-box;transform-origin:50% 100%}
+  .balloon-sway{animation:sway 3.2s ease-in-out infinite;transform-box:fill-box;transform-origin:50% 100%}
+  @keyframes sway{0%,100%{transform:rotate(-1.6deg)}50%{transform:rotate(1.6deg)}}
+  .balloon-scale.pop{animation:popout .28s ease-in forwards}
+  @keyframes popout{to{transform:scale(1.55);opacity:0}}
+  .puff{opacity:0}
+  .puff.go{animation:rise 1s ease-out forwards}
+  @keyframes rise{0%{opacity:0;transform:translate(0,0)}15%{opacity:.9}100%{opacity:0;transform:translate(8px,-130px)}}
+  .burst{opacity:0}
+  .burst.go{animation:flash .45s ease-out forwards}
+  @keyframes flash{0%{opacity:0;transform:scale(.6)}25%{opacity:1}100%{opacity:0;transform:scale(1.25)}}
+  .ground-shake.go{animation:shake .3s ease-out}
+  @keyframes shake{0%,100%{transform:translateY(0)}40%{transform:translateY(2px)}}
+  .shard{opacity:0;transform-box:fill-box;transform-origin:center}
+  .popfx.go .shard{animation:shardfly .6s ease-out forwards}
+  @keyframes shardfly{0%{opacity:1;transform:translate(0,0) rotate(0)}100%{opacity:0;transform:translate(var(--dx),var(--dy)) rotate(160deg)}}
+  .bang{opacity:0;font-weight:500}
+  .popfx.go .bang{animation:bangpop .7s ease-out forwards}
+  @keyframes bangpop{0%{opacity:0;transform:scale(.5)}20%{opacity:1;transform:scale(1.15)}45%{transform:scale(1)}100%{opacity:0;transform:translateY(-14px) scale(1)}}
+  .btn{border:1px solid #d9d9d9;background:#1a1a1a;color:#fff;border-radius:10px;padding:8px 20px;font-size:15px;font-weight:500;cursor:pointer;transition:opacity 120ms}
+  .btn:hover{opacity:.85}
+  .btn.ghost{background:transparent;color:#1a1a1a}
+  .meter{font-size:13px;color:#999;font-variant-numeric:tabular-nums}
+  .score{font-size:15px;font-weight:500}
+  .row{display:flex;gap:8px;align-items:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="stage">
+    <svg viewBox="0 0 340 430" aria-label="T锤打气球">
+      <!-- 舞台边框 -->
+      <rect class="frame" x="8" y="8" width="324" height="324" rx="12"/>
+
+      <!-- 地面线与斜纹 -->
+      <g class="ground-shake" id="ground">
+        <line x1="14" y1="332" x2="326" y2="332" stroke="#bbb" stroke-width="2"/>
+        <path d="M150 332 l-14 10 M158 332 l-6 14 M196 332 l12 11 M188 332 l5 15" stroke="#bbb" stroke-width="2" stroke-linecap="round" fill="none"/>
+      </g>
+
+      <!-- 爆裂光晕 -->
+      <g class="burst" id="burst" style="transform-box:fill-box;transform-origin:center;">
+        <path d="M170 300 l7 -14 4 12 13 -6 -8 12 14 1 -13 6 10 9 -14 -3 2 14 -8 -11 -5 13 -1 -14 -12 7 7 -12 -14 -2 13 -5 -10 -8 13 3 -3 -13 8 10 z" fill="rgba(245,166,35,.35)" stroke="#f5a623" stroke-width="2" stroke-linejoin="round"/>
+      </g>
+
+      <!-- 竖直锤子：深灰手柄 + 横向黑色锤柄穿过手柄中上部，气球在正上方 -->
+      <g class="hammer" id="hammer">
+        <!-- 横向黑色横柱：先画 → 在下层，中间会被灰柱遮住 -->
+        <rect x="100" y="278" width="96" height="12" rx="3" fill="#111" stroke="#000" stroke-width="1.5" />
+        <!-- 竖直深灰手柄（主体）：后画 → 盖住横柱 -->
+        <rect x="186" y="236" width="20" height="96" rx="8" fill="#7a7a7a" stroke="#5a5a5a" stroke-width="2" />
+        <!-- 手柄底部深色区域 -->
+        <rect x="186" y="296" width="20" height="36" rx="8" fill="#666" stroke="#5a5a5a" stroke-width="2" />
+        <!-- 气球 -->
+        <g class="balloon-scale" id="balloonScale">
+          <g class="balloon-sway">
+            <!-- 结口：浅蓝梯形接头 + 横条纹 -->
+            <path d="M186 212 L206 212 L204 236 L188 236 Z" fill="#dbeafe" stroke="#4d7cff" stroke-width="2" stroke-linejoin="round"/>
+            <path d="M187 220 L205 220 M188 228 L204 228" stroke="#4d7cff" stroke-width="1.6" opacity=".85"/>
+            <!-- 气球主体 -->
+            <circle cx="196" cy="152" r="58" fill="#dbeafe" stroke="#4d7cff" stroke-width="2.5"/>
+            <!-- 白色弧形高光 -->
+            <path d="M164 122 A40 40 0 0 1 190 114" stroke="#fff" stroke-width="7" stroke-linecap="round" fill="none" opacity=".95"/>
+          </g>
+        </g>
+      </g>
+
+      <!-- 白色烟雾 -->
+      <g id="puffs">
+        <circle class="puff" cx="238" cy="292" r="6" fill="#fff" stroke="#999" stroke-width="1.5"/>
+        <circle class="puff" cx="252" cy="298" r="4.5" fill="#fff" stroke="#999" stroke-width="1.5"/>
+        <circle class="puff" cx="264" cy="302" r="3.5" fill="#fff" stroke="#999" stroke-width="1.5"/>
+      </g>
+
+      <!-- 碎片与音效字 -->
+      <g class="popfx" id="popfx">
+        <polygon class="shard" style="--dx:-70px; --dy:-50px" points="250,150 262,144 266,156 254,160" fill="#4d7cff"/>
+        <polygon class="shard" style="--dx:64px; --dy:-64px"  points="266,136 278,132 280,144 268,148" fill="rgba(77,124,255,.6)"/>
+        <polygon class="shard" style="--dx:80px; --dy:10px"   points="276,158 288,162 282,172 272,168" fill="#4d7cff"/>
+        <polygon class="shard" style="--dx:-54px; --dy:44px"  points="224,168 236,172 230,182 220,176" fill="rgba(77,124,255,.6)"/>
+        <polygon class="shard" style="--dx:-16px; --dy:-84px" points="242,124 252,118 256,128 246,134" fill="#4d7cff"/>
+        <polygon class="shard" style="--dx:26px; --dy:60px"   points="250,172 260,178 252,186 244,180" fill="rgba(77,124,255,.6)"/>
+        <text class="bang" x="286" y="120" font-size="26" fill="#e5484d">砰!</text>
+      </g>
+    </svg>
+  </div>
+
+  <div class="meter">单次触发膨起模式</div>
+  <div class="row">
+    <button class="btn" id="hitBtn">敲一下</button>
+    <button class="btn ghost" id="resetBtn">重新开始</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  const hammer = document.getElementById('hammer');
+  const burst = document.getElementById('burst');
+  const ground = document.getElementById('ground');
+  const puffs = document.querySelectorAll('.puff');
+  const balloon = document.getElementById('balloonScale');
+  const popfx = document.getElementById('popfx');
+  const hitBtn = document.getElementById('hitBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  let inflating = false;
+
+  function replay(el, cls){
+    el.classList.remove(cls);
+    void el.getBoundingClientRect();
+    el.classList.add(cls);
+  }
+  function noop(){}
+  function strikeFx(){
+    replay(hammer, 'hit');
+    setTimeout(function(){ hammer.classList.remove('hit'); }, 110);
+    replay(burst, 'go');
+    replay(ground, 'go');
+    puffs.forEach(function(p, i){ setTimeout(function(){ replay(p, 'go'); }, i * 90); });
+  }
+
+  hitBtn.addEventListener('click', function(){
+    if (inflating) return;
+    inflating = true;
+    strikeFx();
+    // 单次脉冲：立刻放大到目标比例，然后在过渡时间后恢复
+    const base = 0.92;
+    const peak = 1.28; // 膨起峰值
+    balloon.style.setProperty('--s', String(peak));
+    // 使用与 .balloon-scale 的过渡时长一致，稍加余量
+    setTimeout(function(){
+      balloon.style.setProperty('--s', String(base));
+      // 等回落动画结束后解锁
+      setTimeout(function(){ inflating = false; }, 280);
+    }, 260);
+  });
+
+  resetBtn.addEventListener('click', function(){
+    if (inflating) return;
+    balloon.style.setProperty('--s', '0.92');
+  });
+
+  // 初始化为基础比例
+  balloon.style.setProperty('--s', '0.92');
+})();
+</script>
+</body>
+</html>
